@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RTSP to HLS Player</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #121212;
+      color: white;
+    }
+    video {
+      width: 80%;
+      height: auto;
+      margin-top: 20px;
+      background: black;
+    }
+    input, button {
+      margin: 10px;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+    }
+    .form-group {
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+
+<h1>RTSP to HLS Live Player</h1>
+
+<div id="login-section">
+  <h2>Login</h2>
+  <div class="form-group">
+    <input id="username" placeholder="Username" />
+    <input id="password" type="password" placeholder="Password" />
+    <button onclick="login()">Login</button>
+  </div>
+</div>
+
+<div id="stream-section" style="display: none;">
+  <h2>Start/Stop/Play Stream</h2>
+
+  <div class="form-group">
+    <input id="streamId" placeholder="Stream ID (e.g., cam4)" />
+  </div>
+
+  <div class="form-group">
+    <input id="rtspUrl" placeholder="RTSP URL (only for Start)" />
+  </div>
+
+  <div class="form-group">
+    <button onclick="startStream()">Start Stream</button>
+    <button onclick="stopStream()">Stop Stream</button>
+    <button onclick="playStream()">Play Stream</button>
+  </div>
+
+  <video id="video" controls autoplay></video>
+</div>
+
+<script>
+  let authToken = '';
+
+  async function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+      });
+      
+      const data = await response.json();
+      if (data.token) {
+        authToken = data.token;
+        alert('Login successful!');
+        document.getElementById('login-section').style.display = 'none';
+        document.getElementById('stream-section').style.display = 'block';
+      } else {
+        alert('Login failed.');
+      }
+    } catch (error) {
+      console.error('Login Error:', error);
+      alert('Login failed.');
+    }
+  }
+
+  async function startStream() {
+    const streamId = document.getElementById('streamId').value;
+    const rtspUrl = document.getElementById('rtspUrl').value;
+
+    try {
+      const response = await fetch('/api/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ streamId, rtspUrl })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('Stream started successfully!');
+      } else {
+        alert('Failed to start stream.');
+      }
+    } catch (error) {
+      console.error('Start Error:', error);
+      alert('Failed to start stream.');
+    }
+  }
+
+  async function stopStream() {
+    const streamId = document.getElementById('streamId').value;
+
+    try {
+      const response = await fetch('/api/stop', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ streamId })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('Stream stopped successfully!');
+      } else {
+        alert('Failed to stop stream.');
+      }
+    } catch (error) {
+      console.error('Stop Error:', error);
+      alert('Failed to stop stream.');
+    }
+  }
+
+  function playStream() {
+    const streamId = document.getElementById('streamId').value;
+    const video = document.getElementById('video');
+    const streamUrl = `/streams/${streamId}/index.m3u8`;
+
+    if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(streamUrl);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        video.play();
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = streamUrl;
+      video.addEventListener('loadedmetadata', function () {
+        video.play();
+      });
+    }
+  }
+</script>
+
+</body>
+</html>
